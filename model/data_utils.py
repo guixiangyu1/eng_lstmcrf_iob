@@ -142,7 +142,7 @@ def get_glove_vocab(filename):
     """
     print("Building vocab...")
     vocab = set()
-    with open(filename) as f:
+    with open(filename, encoding='utf-8') as f:
         for line in f:
             word = line.strip().split(' ')[0]
             vocab.add(word)
@@ -206,7 +206,7 @@ def export_trimmed_glove_vectors(vocab, glove_filename, trimmed_filename, dim):
 
     """
     embeddings = np.zeros([len(vocab), dim])
-    with open(glove_filename) as f:
+    with open(glove_filename, encoding='utf-8') as f:
         for line in f:
             line = line.strip().split(' ')
             word = line[0]
@@ -399,52 +399,30 @@ def get_chunks(seq, tags):
     default = tags[NONE]
     idx_to_tag = {idx: tag for tag, idx in tags.items()}
     chunks = []
-    chunk_start = None
+    chunk_type, chunk_start = None, None
     for i, tok in enumerate(seq):
-        tok = idx_to_tag[tok]
-        if tok=="O" and chunk_start is not None:
-            chunk = (chunk_start, i)
+        # End of a chunk 1
+        if tok == default and chunk_type is not None:
+            # Add a chunk.
+            chunk = (chunk_type, chunk_start, i)
             chunks.append(chunk)
-            chunk_start = None
-        elif tok == "O" and chunk_start is None:
+            chunk_type, chunk_start = None, None
+
+        # End of a chunk + start of a chunk!
+        elif tok != default:
+            tok_chunk_class, tok_chunk_type = get_chunk_type(tok, idx_to_tag)
+            if chunk_type is None:
+                chunk_type, chunk_start = tok_chunk_type, i
+            elif tok_chunk_type != chunk_type or tok_chunk_class == "B":
+                chunk = (chunk_type, chunk_start, i)
+                chunks.append(chunk)
+                chunk_type, chunk_start = tok_chunk_type, i
+        else:
             pass
-        elif tok == "B" and chunk_start is not None:
-            chunk = (chunk_start, i)
-            chunks.append(chunk)
-            chunk_start = i
-        elif tok == "B" and chunk_start is None:
-            chunk_start = i
-        elif tok == "I":
-            pass
-    if chunk_start is not None:
-        chunk = (chunk_start, len(seq))
+
+    # end condition
+    if chunk_type is not None:
+        chunk = (chunk_type, chunk_start, len(seq))
         chunks.append(chunk)
+
     return chunks
-
-    # chunk_type, chunk_start = None, None
-    # for i, tok in enumerate(seq):
-    #     # End of a chunk 1
-    #     if tok == default and chunk_type is not None:
-    #         # Add a chunk.
-    #         chunk = (chunk_type, chunk_start, i)
-    #         chunks.append(chunk)
-    #         chunk_type, chunk_start = None, None
-    #
-    #     # End of a chunk + start of a chunk!
-    #     elif tok != default:
-    #         tok_chunk_class, tok_chunk_type = get_chunk_type(tok, idx_to_tag)
-    #         if chunk_type is None:
-    #             chunk_type, chunk_start = tok_chunk_type, i
-    #         elif tok_chunk_type != chunk_type or tok_chunk_class == "B":
-    #             chunk = (chunk_type, chunk_start, i)
-    #             chunks.append(chunk)
-    #             chunk_type, chunk_start = tok_chunk_type, i
-    #     else:
-    #         pass
-
-    # # end condition
-    # if chunk_type is not None:
-    #     chunk = (chunk_type, chunk_start, len(seq))
-    #     chunks.append(chunk)
-
-    # return chunks
